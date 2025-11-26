@@ -1,0 +1,241 @@
+<?php
+include 'header.php';
+
+// รับค่ากรอง/ค้นหา
+$search        = trim($_GET['q'] ?? '');
+$categoryInput = $_GET['category'] ?? 'all';
+$categoryFilter = $categoryInput === '' ? 'all' : $categoryInput;
+$ratingOrder   = $_GET['rating_order'] ?? 'desc';
+$ratingOrder   = $ratingOrder === 'asc' ? 'asc' : 'desc'; // default มากไปน้อย
+$ratingDir     = $ratingOrder === 'asc' ? 'ASC' : 'DESC';
+
+$categoryOptions = [
+    'all' => 'ทั้งหมด',
+    'Food' => 'Food',
+    'Clothing' => 'Clothing',
+    'Electronics' => 'Electronics',
+    'Cosmetics' => 'Cosmetics',
+    'Beverage' => 'Beverage',
+    'Beauty' => 'Beauty',
+    'Books' => 'Books',
+    'Sports' => 'Sports',
+    'Home & Living' => 'Home & Living',
+    'Toys' => 'Toys',
+    'Automotive' => 'Automotive',
+    'Health' => 'Health',
+    'Pet Supplies' => 'Pet Supplies',
+    'Stationery' => 'Stationery',
+    'Others' => 'Others',
+];
+
+// ดึงสินค้าพร้อมค่าเฉลี่ยเรตติ้ง
+$sql = "
+    SELECT p.product_id, p.product_name, p.category,
+           s.store_name,
+           ROUND(AVG(r.rating), 1) AS avg_rating,
+           COUNT(r.review_id) AS review_count
+    FROM Product p
+    JOIN Store s ON p.store_id = s.store_id
+    LEFT JOIN Review r ON r.product_id = p.product_id
+    WHERE 1=1
+";
+
+$hasSearch = $search !== '';
+$hasCategory = ($categoryFilter !== 'all');
+
+if ($hasSearch) {
+    $sql .= " AND (p.product_name LIKE ? OR s.store_name LIKE ?)";
+    $like = '%' . $search . '%';
+}
+
+if ($hasCategory) {
+    $sql .= " AND p.category = ?";
+}
+
+$sql .= " GROUP BY p.product_id
+          ORDER BY COALESCE(avg_rating, 0) {$ratingDir}, p.product_name ASC
+          LIMIT 50";
+
+$stmt = $conn->prepare($sql);
+if ($hasSearch && $hasCategory) {
+    $stmt->bind_param('sss', $like, $like, $categoryFilter);
+} elseif ($hasSearch) {
+    $stmt->bind_param('ss', $like, $like);
+} elseif ($hasCategory) {
+    $stmt->bind_param('s', $categoryFilter);
+}
+$stmt->execute();
+$result = $stmt->get_result();
+$products = [];
+while ($row = $result->fetch_assoc()) {
+    $products[] = $row;
+}
+$stmt->close();
+
+$currentRole = $_SESSION['user_type_id'] ?? null;
+$canCreateStore = in_array((int)$currentRole, [2, 3], true);
+
+// ร้านค้าที่ยังไม่มีสินค้า เพื่อให้การ์ดแสดงครบ และให้ค้นหา/กรองหมวดได้
+$storesNoProduct = [];
+$sqlStoreOnly = "
+    SELECT s.store_id, s.store_name, s.category
+    FROM Store s
+    WHERE NOT EXISTS (
+        SELECT 1 FROM Product p WHERE p.store_id = s.store_id
+    )
+";
+$storeHasSearch = $search !== '';
+$storeHasCategory = ($categoryFilter !== 'all');
+
+if ($storeHasSearch) {
+    $sqlStoreOnly .= " AND s.store_name LIKE ?";
+    $storeLike = '%' . $search . '%';
+}
+
+if ($storeHasCategory) {
+    $sqlStoreOnly .= " AND s.category = ?";
+}
+
+$sqlStoreOnly .= " ORDER BY s.store_name ASC LIMIT 50";
+
+$stmtStore = $conn->prepare($sqlStoreOnly);
+if ($storeHasSearch && $storeHasCategory) {
+    $stmtStore->bind_param('ss', $storeLike, $categoryFilter);
+} elseif ($storeHasSearch) {
+    $stmtStore->bind_param('s', $storeLike);
+} elseif ($storeHasCategory) {
+    $stmtStore->bind_param('s', $categoryFilter);
+}
+$stmtStore->execute();
+$storeResult = $stmtStore->get_result();
+while ($row = $storeResult->fetch_assoc()) {
+    $storesNoProduct[] = $row;
+}
+$stmtStore->close();
+?>
+<section class="section">
+    <div style="display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap;">
+        <h1 class="page-title" style="margin-bottom:0;">ระบบรีวิวสินค้า</h1>
+        <form id="filterForm" method="get" style="display:flex; gap:0.35rem; flex-wrap:wrap; align-items:center;">
+            <input type="text" name="q" placeholder="🔎สินค้า/ร้าน" value="<?php echo htmlspecialchars($search); ?>"
+                   style="padding:0.45rem 0.6rem; border-radius:0.65rem; border:1px solid #374151; background:#0b1222; color:#f9fafb; min-width:100px; max-width:170px;">
+            <span style="opacity:0.85;">📁ประเภท:</span>
+            <select name="category" id="categorySelect"
+                    style="padding:0.45rem 0.6rem; border-radius:0.65rem; border:1px solid #374151; background:#0b1222; color:#f9fafb; min-width:100px; max-width:140px;">
+                <?php foreach ($categoryOptions as $val => $label): ?>
+                    <option value="<?php echo htmlspecialchars($val); ?>" <?php echo ($categoryFilter === $val) ? 'selected' : ''; ?>>
+                        <?php echo htmlspecialchars($label); ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
+            <span style="opacity:0.85;">เรียงคะแนน:</span>
+            <input type="hidden" name="rating_order" id="ratingOrderInput" value="<?php echo htmlspecialchars($ratingOrder); ?>">
+            <button type="button" id="ratingOrderBtn"
+                    style="display:flex; align-items:center; gap:0.25rem; padding:0.45rem 0.65rem; border-radius:0.65rem; border:1px solid #374151; background:#0b1222; color:#f9fafb; cursor:pointer;">
+                <span id="ratingOrderDown" style="color:<?php echo $ratingOrder === 'asc' ? '#3b82f6' : '#64748b'; ?>">↓</span>
+                <span id="ratingOrderUp" style="color:<?php echo $ratingOrder === 'desc' ? '#3b82f6' : '#64748b'; ?>">↑</span>
+            </button>
+            <noscript><button class="btn-primary" type="submit">ค้นหา</button></noscript>
+        </form>
+        <?php if (currentUserId()): ?>
+            <?php if ($canCreateStore): ?>
+                <a class="btn-add-store" href="add-store.php" style="margin-left:auto;">
+                    <span style="font-size:1.1rem;">＋</span> เพิ่มร้านค้า
+                </a>
+            <?php else: ?>
+                <button type="button" class="btn-add-store locked" id="addStoreLockedBtn" style="margin-left:auto;">
+                    <span style="font-size:1.1rem;">＋</span> เพิ่มร้านค้า
+                </button>
+            <?php endif; ?>
+        <?php else: ?>
+            <a class="btn-add-store locked" href="login.php" style="margin-left:auto;">＋ เพิ่มร้านค้า</a>
+        <?php endif; ?>
+    </div>
+    <p class="page-subtitle">รายการสินค้าทั้งหมด</p>
+
+    <div class="card-grid">
+        <?php foreach ($products as $row): ?>
+            <a class="card" href="product.php?id=<?php echo $row['product_id']; ?>">
+                <div class="card-title">
+                    <?php echo htmlspecialchars($row['product_name']); ?>
+                </div>
+                <div class="card-sub">
+                    ร้าน: <?php echo htmlspecialchars($row['store_name']); ?>
+                </div>
+                <div>
+                    <?php if ($row['category']): ?>
+                        <span class="badge">หมวด: <?php echo htmlspecialchars($row['category']); ?></span>
+                    <?php endif; ?>
+                    <span class="badge">
+                        ⭐ <?php echo $row['avg_rating'] ? $row['avg_rating'] : '-'; ?>
+                    </span>
+                    <span class="badge">
+                        💬 <?php echo $row['review_count']; ?> รีวิว
+                    </span>
+                </div>
+            </a>
+        <?php endforeach; ?>
+
+        <?php foreach ($storesNoProduct as $store): ?>
+            <div class="card card-empty">
+                <div class="card-title">
+                    <?php echo htmlspecialchars($store['store_name']); ?>
+                </div>
+                <div class="card-sub">
+                    ยังไม่มีสินค้าที่เชื่อมกับร้านนี้
+                </div>
+                <div>
+                    <?php if ($store['category']): ?>
+                        <span class="badge">หมวด: <?php echo htmlspecialchars($store['category']); ?></span>
+                    <?php endif; ?>
+                    <span class="badge">⭐ -</span>
+                    <span class="badge">💬 0 รีวิว</span>
+                </div>
+            </div>
+        <?php endforeach; ?>
+
+        <?php if (empty($products) && empty($storesNoProduct)): ?>
+            <p style="opacity:0.85; margin-top:0.6rem;">ยังไม่มีข้อมูลสินค้า/ร้าน</p>
+        <?php endif; ?>
+    </div>
+</section>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const lockedBtn = document.getElementById('addStoreLockedBtn');
+    const filterForm = document.getElementById('filterForm');
+    const categorySelect = document.getElementById('categorySelect');
+    const ratingOrderBtn = document.getElementById('ratingOrderBtn');
+    const ratingOrderInput = document.getElementById('ratingOrderInput');
+    const ratingOrderUp = document.getElementById('ratingOrderUp');
+    const ratingOrderDown = document.getElementById('ratingOrderDown');
+
+    if (categorySelect && filterForm) {
+        categorySelect.addEventListener('change', () => filterForm.submit());
+    }
+
+    if (ratingOrderBtn && ratingOrderInput && filterForm) {
+        ratingOrderBtn.addEventListener('click', () => {
+            const next = ratingOrderInput.value === 'asc' ? 'desc' : 'asc';
+            ratingOrderInput.value = next;
+            if (ratingOrderUp && ratingOrderDown) {
+                ratingOrderUp.style.color = next === 'asc' ? '#3b82f6' : '#64748b';
+                ratingOrderDown.style.color = next === 'desc' ? '#3b82f6' : '#64748b';
+            }
+            filterForm.submit();
+        });
+    }
+
+    if (lockedBtn) {
+        lockedBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            Swal.fire({
+                icon: 'warning',
+                title: 'คุณไม่ได้อยู่ในสถานะบัญชีร้านค้า',
+                text: 'เฉพาะผู้ดูแลระบบหรือเจ้าของร้านค้าถึงจะเพิ่มข้อมูลร้านได้',
+                confirmButtonColor: '#10b981'
+            });
+        });
+    }
+});
+</script>
+<?php include 'footer.php'; ?>

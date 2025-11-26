@@ -1,0 +1,369 @@
+/* assets/style.css */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: "Kanit", "Segoe UI", system-ui, -apple-system, sans-serif;
+    background: #0f172a;
+    color: #e5e7eb;
+    font-size: 17px;
+    line-height: 1.6;
+}
+
+a {
+    color: inherit;
+    text-decoration: none;
+}
+
+.container {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 1.5rem;
+}
+
+.topbar {
+    background: rgba(15, 23, 42, 0.95);
+    border-bottom: 1px solid #1f2937;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    backdrop-filter: blur(10px);
+}
+
+.logo {
+    font-weight: 700;
+    font-size: 2rem;
+    letter-spacing: 0.09em;
+}
+
+.nav {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+}
+
+.nav a {
+    padding: 0.4rem 0.8rem;
+    border-radius: 999px;
+    font-size: 0.95rem;
+    transition: background 0.15s, color 0.15s;
+}
+
+.nav a:hover {
+    background: #1f2937;
+}
+
+.nav-user {
+    font-size: 0.95rem;
+    opacity: 0.8;
+}
+
+.topbar .container {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.main-content {
+    padding-top: 1.5rem;
+    padding-bottom: 2rem;
+}
+
+/* card layout */
+
+.card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1.2rem;
+}
+
+.card {
+    background: radial-gradient(circle at top left, #1d283a, #020617);
+    border-radius: 1rem;
+    padding: 1.2rem;
+    border: 1px solid #1f2937;
+    box-shadow: 0 18px 30px rgba(15, 23, 42, 0.7);
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s;
+}
+
+.card:hover {
+    transform: translateY(-3px);
+    border-color: #3b82f6;
+    box-shadow: 0 22px 45px rgba(37, 99, 235, 0.35);
+}
+
+.card-empty {
+    background: #0b1222;
+    border-style: dashed;
+    opacity: 0.9;
+    cursor: not-allowed;
+}
+
+.card-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+}
+
+.card-sub {
+    font-size: 0.95rem;
+    opacity: 0.8;
+    margin-bottom: 0.5rem;
+}
+
+.body-text {
+    font-size: 1rem;
+    opacity: 0.95;
+}
+
+.badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.18rem 0.55rem;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    background: #111827;
+    border: 1px solid #1f2937;
+    margin-right: 0.3rem;
+}
+
+.rating {
+    font-size: 0.9rem;
+    margin-top: 0.4rem;
+    opacity: 0.9;
+}
+
+/* form */
+
+.form-card {
+    background: #020617;
+    border-radius: 1rem;
+    padding: 1.3rem;
+    border: 1px solid #1f2937;
+    max-width: 420px;
+    margin: 0 auto;
+}
+
+.form-group {
+    margin-bottom: 0.9rem;
+}
+
+label {
+    font-size: 0.95rem;
+    display: block;
+    margin-bottom: 0.25rem;
+}
+
+input[type="text"],
+input[type="email"],
+input[type="password"],
+select,
+textarea {
+    width: 100%;
+    padding: 0.5rem 0.7rem;
+    border-radius: 0.7rem;
+    border: 1px solid #374151;
+    background: #020617;
+    color: #e5e7eb;
+    font-size: 1rem;
+}
+
+textarea {
+    min-height: 110px;
+    resize: vertical;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.5);
+}
+
+.input-error {
+    border-color: #ef4444 !important;
+}
+
+.btn,
+.btn-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem 1rem;
+    border-radius: 999px;
+    border: none;
+    cursor: pointer;
+    font-size: 0.95rem;
+    gap: 0.35rem;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #3b82f6, #6366f1);
+    color: #f9fafb;
+}
+
+.btn-primary:hover {
+    filter: brightness(1.06);
+}
+
+.btn-add-store {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.45rem 0.8rem;
+    border-radius: 0.8rem;
+    border: 1px solid rgba(16, 185, 129, 0.5);
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: #f9fafb;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 6px 16px rgba(16, 185, 129, 0.35);
+}
+
+.btn-add-store:hover {
+    filter: brightness(1.05);
+}
+
+.btn-add-store.locked {
+    background: #0d1a2f;
+    color: #d1d5db;
+    border-color: #1f2937;
+    box-shadow: none;
+}
+
+.btn-edit {
+    background: #b91c1c;
+    color: #f9fafb;
+    border: none;
+    padding: 0.35rem 0.7rem;
+    border-radius: 0.5rem;
+    cursor: pointer;
+}
+
+.btn-edit.save {
+    background: #15803d;
+}
+
+/* section */
+
+.page-title {
+    font-size: 1.7rem;
+    font-weight: 600;
+    margin-bottom: 0.6rem;
+}
+
+.page-subtitle {
+    font-size: 1rem;
+    opacity: 0.85;
+    margin-bottom: 1.2rem;
+}
+
+.section {
+    margin-bottom: 1.6rem;
+}
+
+.footer {
+    border-top: 1px solid #1f2937;
+    padding: 1rem 0;
+    font-size: 0.85rem;
+    opacity: 0.7;
+    text-align: center;
+}
+
+/* review & comment */
+
+.review {
+    background: #020617;
+    border-radius: 0.9rem;
+    padding: 1rem;
+    border: 1px solid #1f2937;
+    margin-bottom: 0.8rem;
+}
+
+.review-header {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.95rem;
+    margin-bottom: 0.4rem;
+}
+
+.review-body {
+    font-size: 1rem;
+    line-height: 1.5;
+}
+
+.comments {
+    margin-top: 0.6rem;
+    padding-left: 0.7rem;
+    border-left: 2px solid #1f2937;
+}
+
+.comment {
+    font-size: 0.95rem;
+    margin-bottom: 0.35rem;
+    opacity: 0.95;
+}
+
+.alert {
+    padding: 0.5rem 0.7rem;
+    border-radius: 0.6rem;
+    font-size: 0.9rem;
+    margin-bottom: 0.8rem;
+}
+
+.alert-error {
+    background: rgba(248, 113, 113, 0.15);
+    border: 1px solid #f87171;
+}
+
+.alert-success {
+    background: rgba(52, 211, 153, 0.12);
+    border: 1px solid #34d399;
+}
+
+.profile-card {
+    background: #0b1222;
+    border: 1px solid #1f2937;
+    border-radius: 1rem;
+    padding: 1.3rem;
+    max-width: 520px;
+}
+
+.profile-row {
+    margin-bottom: 0.9rem;
+}
+
+.profile-row label {
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+    display: inline-block;
+}
+
+.profile-field {
+    display: flex;
+    gap: 0.6rem;
+    align-items: center;
+}
+
+/* สีตาม role */
+
+.user-role-admin {
+    color: #fb7185; /* แดงอมชมพูสว่าง */
+    font-weight: 700;
+    opacity: 1 !important;
+}
+
+.user-role-merchant {
+    color: #facc15; /* ทองอร่าม */
+    font-weight: 700;
+    opacity: 1 !important;
+}
+
+.user-role-customer {
+    color: #e5e7eb;
+}
