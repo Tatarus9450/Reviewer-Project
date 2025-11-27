@@ -10,12 +10,6 @@ if (!in_array($roleId, $allowedRoles, true)) {
     exit('คุณไม่ได้รับสิทธิ์ในการเพิ่มร้านค้า');
 }
 
-$categories = [
-    'Food', 'Clothing', 'Electronics', 'Cosmetics', 'Beverage',
-    'Beauty', 'Books', 'Sports', 'Home & Living', 'Toys', 'Automotive',
-    'Health', 'Pet Supplies', 'Stationery', 'Others'
-];
-
 $countries = [
     'Thailand',
     'Afghanistan','Albania','Algeria','Andorra','Angola','Antigua and Barbuda','Argentina','Armenia','Australia','Austria','Azerbaijan',
@@ -49,7 +43,6 @@ $errorFields = [];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $storeName = trim($_POST['store_name'] ?? '');
-    $category  = $_POST['category'] ?? '';
     $country   = $_POST['country'] ?? '';
     $city      = trim($_POST['city'] ?? '');
     $contact   = trim($_POST['contact'] ?? '');
@@ -57,10 +50,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($storeName === '') {
         $errors[] = 'กรุณากรอกชื่อร้านค้า';
         $errorFields['store_name'] = true;
-    }
-    if (!in_array($category, $categories, true)) {
-        $errors[] = 'กรุณาเลือกประเภทสินค้า';
-        $errorFields['category'] = true;
     }
     if (!in_array($country, $countries, true)) {
         $errors[] = 'กรุณาเลือกประเทศ';
@@ -71,17 +60,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errorFields['city'] = true;
     }
     if ($contact === '') {
-        $errors[] = 'กรุณากรอกเบอร์ติดต่อ';
+        $errors[] = 'กรุณากรอกช่องทางติดต่อ';
         $errorFields['contact'] = true;
     }
 
     if (empty($errors)) {
         $stmt = $conn->prepare("
-            INSERT INTO Store (user_id, store_name, category, country, city, contact, register_date)
-            VALUES (?, ?, ?, ?, ?, ?, NOW())
+            INSERT INTO Store (user_id, store_name, country, city, contact, register_date)
+            VALUES (?, ?, ?, ?, ?, NOW())
         ");
         $uid = currentUserId();
-        $stmt->bind_param('isssss', $uid, $storeName, $category, $country, $city, $contact);
+        $stmt->bind_param('issss', $uid, $storeName, $country, $city, $contact);
         $stmt->execute();
         $stmt->close();
 
@@ -96,7 +85,7 @@ include 'header.php';
 <section class="section">
     <div style="display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap;">
         <h1 class="page-title">เพิ่มข้อมูลร้านค้า</h1>
-        <a href="index.php" class="btn" style="background:#1f2937; color:#f9fafb;">← กลับหน้าแรก</a>
+        <a href="add-product.php" class="btn" style="background:#1f2937; color:#f9fafb;">← กลับหน้าก่อน</a>
     </div>
 
     <div class="form-card" style="max-width:540px;">
@@ -110,19 +99,6 @@ include 'header.php';
                 <input type="text" name="store_name" required
                        class="<?php echo isset($errorFields['store_name']) ? 'input-error' : ''; ?>"
                        value="<?php echo htmlspecialchars($_POST['store_name'] ?? ''); ?>">
-            </div>
-
-            <div class="form-group">
-                <label>ประเภทสินค้า</label>
-                <select name="category" required class="<?php echo isset($errorFields['category']) ? 'input-error' : ''; ?>">
-                    <option value="">-- เลือกประเภทสินค้า --</option>
-                    <?php foreach ($categories as $c): ?>
-                        <option value="<?php echo htmlspecialchars($c); ?>"
-                            <?php echo (($_POST['category'] ?? '') === $c) ? 'selected' : ''; ?>>
-                            <?php echo htmlspecialchars($c); ?>
-                        </option>
-                    <?php endforeach; ?>
-                </select>
             </div>
 
             <div class="form-group">
@@ -146,7 +122,7 @@ include 'header.php';
             </div>
 
             <div class="form-group">
-                <label>เบอร์ติดต่อ</label>
+                <label>ช่องทางติดต่อ</label>
                 <input type="text" name="contact" required
                        class="<?php echo isset($errorFields['contact']) ? 'input-error' : ''; ?>"
                        value="<?php echo htmlspecialchars($_POST['contact'] ?? ''); ?>">

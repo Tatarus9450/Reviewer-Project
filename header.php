@@ -12,7 +12,10 @@ require_once 'db.php';
 <body>
 <header class="topbar">
     <div class="container">
-        <div class="logo">ReviewHub</div>
+        <div class="logo">
+            <img src="assets/review-logo.png" alt="ReviewHub logo">
+            <span>ReviewHub</span>
+        </div>
         <nav class="nav">
             <a href="index.php">หน้าแรก</a>
             <?php if (currentUserId()): ?>

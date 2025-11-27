@@ -56,14 +56,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && currentUserId()) {
 // --- ดึงข้อมูลสินค้า + ร้าน ---
 $stmt = $conn->prepare("
     SELECT p.product_name, p.description, p.category,
-           s.store_name, s.city, s.country, s.contact
+           s.store_id, s.user_id, s.store_name, s.city, s.country, s.contact
     FROM Product p
     JOIN Store s ON p.store_id = s.store_id
     WHERE p.product_id = ?
 ");
 $stmt->bind_param('i', $productId);
 $stmt->execute();
-$stmt->bind_result($pname, $pdesc, $pcat, $sname, $scity, $scountry, $scontact);
+$stmt->bind_result($pname, $pdesc, $pcat, $storeId, $storeOwnerId, $sname, $scity, $scountry, $scontact);
 if (!$stmt->fetch()) {
     $stmt->close();
     die('ไม่พบสินค้า');
@@ -84,7 +84,7 @@ $orderDir = $orderParam === 'old' ? 'ASC' : 'DESC';
 // --- ดึงรีวิวทั้งหมดของสินค้านี้ รวม user_type_id ด้วย ---
 $sqlReviews = "
     SELECT r.review_id, r.rating, r.review_text, r.review_date,
-           u.username, u.user_type_id
+           u.username, u.user_type_id, u.user_id
     FROM Review r
     JOIN `User` u ON r.user_id = u.user_id
     WHERE r.product_id = ?
@@ -114,7 +114,7 @@ $stmtRev->close();
 $commentsByReview = [];
 if ($reviews) {
     $stmtC = $conn->prepare("
-        SELECT c.comment_text, c.comment_date, u.username, u.user_type_id
+        SELECT c.comment_text, c.comment_date, u.username, u.user_type_id, u.user_id
         FROM Comment c
         JOIN `User` u ON c.user_id = u.user_id
         WHERE c.review_id = ?
@@ -148,7 +148,7 @@ include 'header.php';
             · หมวด: <?php echo htmlspecialchars($pcat); ?>
         <?php endif; ?>
         <?php if ($scontact): ?>
-            · เบอร์ติดต่อ: <?php echo htmlspecialchars($scontact); ?>
+            · ช่องทางติดต่อ: <?php echo htmlspecialchars($scontact); ?>
         <?php endif; ?>
     </p>
 
@@ -225,11 +225,21 @@ include 'header.php';
             <p style="opacity:0.85; margin-top:0.6rem;">ยังไม่มีรีวิว ลองเขียนอันแรกเลย!</p>
         <?php else: ?>
             <?php foreach ($reviews as $r): ?>
-                <?php $roleClass = userRoleClass($r['user_type_id']); ?>
+                <?php
+                $roleClass = userRoleClass($r['user_type_id']);
+                $isStoreOwner = ((int)($r['user_id'] ?? 0) === (int)$storeOwnerId);
+                $isAdmin = ((int)($r['user_type_id'] ?? 0) === 2);
+                ?>
                 <div class="review">
                     <div class="review-header">
                         <span class="<?php echo $roleClass; ?>">
                             👤 <?php echo htmlspecialchars($r['username']); ?>
+                            <?php if ($isAdmin): ?>
+                                <span style="opacity:0.85;">(ผู้ดูแลระบบ)</span>
+                            <?php endif; ?>
+                            <?php if ($isStoreOwner): ?>
+                                <span style="opacity:0.85;">(เจ้าของร้านค้า)</span>
+                            <?php endif; ?>
                         </span>
                         <span>⭐ <?php echo (int)$r['rating']; ?> ·
                             <?php echo htmlspecialchars($r['review_date']); ?>
@@ -241,10 +251,20 @@ include 'header.php';
 
                     <div class="comments">
                         <?php foreach ($commentsByReview[$r['review_id']] ?? [] as $c): ?>
-                            <?php $cRoleClass = userRoleClass($c['user_type_id']); ?>
+                            <?php
+                            $cRoleClass = userRoleClass($c['user_type_id']);
+                            $cIsStoreOwner = ((int)($c['user_id'] ?? 0) === (int)$storeOwnerId);
+                            $cIsAdmin = ((int)($c['user_type_id'] ?? 0) === 2);
+                            ?>
                             <div class="comment">
                                 <strong class="<?php echo $cRoleClass; ?>">
-                                    <?php echo htmlspecialchars($c['username']); ?>:
+                                    <?php echo htmlspecialchars($c['username']); ?>
+                                    <?php if ($cIsAdmin): ?>
+                                        <span style="opacity:0.85;">(ผู้ดูแลระบบ)</span>
+                                    <?php endif; ?>
+                                    <?php if ($cIsStoreOwner): ?>
+                                        <span style="opacity:0.85;">(เจ้าของร้านค้า)</span>
+                                    <?php endif; ?>:
                                 </strong>
                                 <?php echo nl2br(htmlspecialchars($c['comment_text'])); ?>
                             </div>

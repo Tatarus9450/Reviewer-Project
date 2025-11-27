@@ -73,45 +73,38 @@ while ($row = $result->fetch_assoc()) {
 $stmt->close();
 
 $currentRole = $_SESSION['user_type_id'] ?? null;
-$canCreateStore = in_array((int)$currentRole, [2, 3], true);
+$canAddProduct = in_array((int)$currentRole, [2, 3], true);
 
-// ร้านค้าที่ยังไม่มีสินค้า เพื่อให้การ์ดแสดงครบ และให้ค้นหา/กรองหมวดได้
+// ร้านค้าที่ยังไม่มีสินค้า แสดงเฉพาะเมื่อ filter หมวดเป็น "all"
 $storesNoProduct = [];
-$sqlStoreOnly = "
-    SELECT s.store_id, s.store_name, s.category
-    FROM Store s
-    WHERE NOT EXISTS (
-        SELECT 1 FROM Product p WHERE p.store_id = s.store_id
-    )
-";
-$storeHasSearch = $search !== '';
-$storeHasCategory = ($categoryFilter !== 'all');
+if ($categoryFilter === 'all') {
+    $sqlStoreOnly = "
+        SELECT s.store_id, s.store_name
+        FROM Store s
+        WHERE NOT EXISTS (
+            SELECT 1 FROM Product p WHERE p.store_id = s.store_id
+        )
+    ";
+    $storeHasSearch = $search !== '';
 
-if ($storeHasSearch) {
-    $sqlStoreOnly .= " AND s.store_name LIKE ?";
-    $storeLike = '%' . $search . '%';
-}
+    if ($storeHasSearch) {
+        $sqlStoreOnly .= " AND s.store_name LIKE ?";
+        $storeLike = '%' . $search . '%';
+    }
 
-if ($storeHasCategory) {
-    $sqlStoreOnly .= " AND s.category = ?";
-}
+    $sqlStoreOnly .= " ORDER BY s.store_name ASC LIMIT 50";
 
-$sqlStoreOnly .= " ORDER BY s.store_name ASC LIMIT 50";
-
-$stmtStore = $conn->prepare($sqlStoreOnly);
-if ($storeHasSearch && $storeHasCategory) {
-    $stmtStore->bind_param('ss', $storeLike, $categoryFilter);
-} elseif ($storeHasSearch) {
-    $stmtStore->bind_param('s', $storeLike);
-} elseif ($storeHasCategory) {
-    $stmtStore->bind_param('s', $categoryFilter);
+    $stmtStore = $conn->prepare($sqlStoreOnly);
+    if ($storeHasSearch) {
+        $stmtStore->bind_param('s', $storeLike);
+    }
+    $stmtStore->execute();
+    $storeResult = $stmtStore->get_result();
+    while ($row = $storeResult->fetch_assoc()) {
+        $storesNoProduct[] = $row;
+    }
+    $stmtStore->close();
 }
-$stmtStore->execute();
-$storeResult = $stmtStore->get_result();
-while ($row = $storeResult->fetch_assoc()) {
-    $storesNoProduct[] = $row;
-}
-$stmtStore->close();
 ?>
 <section class="section">
     <div style="display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap;">
@@ -128,7 +121,7 @@ $stmtStore->close();
                     </option>
                 <?php endforeach; ?>
             </select>
-            <span style="opacity:0.85;">เรียงคะแนน:</span>
+            <span style="opacity:0.85;">⭐เรียงคะแนน:</span>
             <input type="hidden" name="rating_order" id="ratingOrderInput" value="<?php echo htmlspecialchars($ratingOrder); ?>">
             <button type="button" id="ratingOrderBtn"
                     style="display:flex; align-items:center; gap:0.25rem; padding:0.45rem 0.65rem; border-radius:0.65rem; border:1px solid #374151; background:#0b1222; color:#f9fafb; cursor:pointer;">
@@ -138,17 +131,17 @@ $stmtStore->close();
             <noscript><button class="btn-primary" type="submit">ค้นหา</button></noscript>
         </form>
         <?php if (currentUserId()): ?>
-            <?php if ($canCreateStore): ?>
-                <a class="btn-add-store" href="add-store.php" style="margin-left:auto;">
-                    <span style="font-size:1.1rem;">＋</span> เพิ่มร้านค้า
+            <?php if ($canAddProduct): ?>
+                <a class="btn-add-store" href="add-product.php" style="margin-left:auto;">
+                    <span style="font-size:1.1rem;">＋</span> เพิ่มข้อมูล
                 </a>
             <?php else: ?>
-                <button type="button" class="btn-add-store locked" id="addStoreLockedBtn" style="margin-left:auto;">
-                    <span style="font-size:1.1rem;">＋</span> เพิ่มร้านค้า
+                <button type="button" class="btn-add-store locked" id="addProductLockedBtn" style="margin-left:auto;">
+                    <span style="font-size:1.1rem;">＋</span> เพิ่มข้อมูล
                 </button>
             <?php endif; ?>
         <?php else: ?>
-            <a class="btn-add-store locked" href="login.php" style="margin-left:auto;">＋ เพิ่มร้านค้า</a>
+            <a class="btn-add-store locked" id="addProductGuestLink" href="login.php" style="margin-left:auto;">＋ เพิ่มข้อมูลสินค้า</a>
         <?php endif; ?>
     </div>
     <p class="page-subtitle">รายการสินค้าทั้งหมด</p>
@@ -185,9 +178,6 @@ $stmtStore->close();
                     ยังไม่มีสินค้าที่เชื่อมกับร้านนี้
                 </div>
                 <div>
-                    <?php if ($store['category']): ?>
-                        <span class="badge">หมวด: <?php echo htmlspecialchars($store['category']); ?></span>
-                    <?php endif; ?>
                     <span class="badge">⭐ -</span>
                     <span class="badge">💬 0 รีวิว</span>
                 </div>
@@ -201,7 +191,8 @@ $stmtStore->close();
 </section>
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-    const lockedBtn = document.getElementById('addStoreLockedBtn');
+    const lockedBtn = document.getElementById('addProductLockedBtn');
+    const guestLink = document.getElementById('addProductGuestLink');
     const filterForm = document.getElementById('filterForm');
     const categorySelect = document.getElementById('categorySelect');
     const ratingOrderBtn = document.getElementById('ratingOrderBtn');
@@ -231,8 +222,32 @@ document.addEventListener('DOMContentLoaded', () => {
             Swal.fire({
                 icon: 'warning',
                 title: 'คุณไม่ได้อยู่ในสถานะบัญชีร้านค้า',
-                text: 'เฉพาะผู้ดูแลระบบหรือเจ้าของร้านค้าถึงจะเพิ่มข้อมูลร้านได้',
+                text: 'เฉพาะผู้ดูแลระบบหรือเจ้าของร้านค้าถึงจะเพิ่มข้อมูลได้',
                 confirmButtonColor: '#10b981'
+            });
+        });
+    }
+
+    if (guestLink && typeof Swal !== 'undefined') {
+        guestLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (guestLink.dataset.submitting === 'true') return;
+            guestLink.dataset.submitting = 'true';
+
+            Swal.fire({
+                title: 'กำลังนำไปหน้าเข้าสู่ระบบ...',
+                text: 'กรุณารอสักครู่',
+                timer: 800,
+                timerProgressBar: true,
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                showConfirmButton: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                },
+                willClose: () => {
+                    window.location.href = guestLink.href;
+                }
             });
         });
     }

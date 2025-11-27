@@ -3,18 +3,27 @@ require_once 'db.php';
 
 $errors  = [];
 $success = false;
+$roleKey = 'customer';
+$roleOptions = [
+    'customer' => ['id' => 1, 'label' => 'ลูกค้า'],
+    'merchant' => ['id' => 3, 'label' => 'ร้านค้า'],
+];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $username = trim($_POST['username'] ?? '');
     $email    = trim($_POST['email'] ?? '');
     $password = $_POST['password'] ?? '';
     $confirm  = $_POST['confirm'] ?? '';
+    $roleKey  = $_POST['account_role'] ?? 'customer';
 
-    if ($username === '' || $email === '' || $password === '') {
+    if ($username === '' || $email === '' || $password === '' || $roleKey === '') {
         $errors[] = 'กรุณากรอกข้อมูลให้ครบ';
     }
     if ($password !== $confirm) {
         $errors[] = 'รหัสผ่านไม่ตรงกัน';
+    }
+    if (!array_key_exists($roleKey, $roleOptions)) {
+        $errors[] = 'กรุณาเลือกสถานะบัญชี';
     }
 
     if (!$errors) {
@@ -28,7 +37,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $errors[] = 'มี username หรือ email นี้แล้ว';
         } else {
             // งานเดโม: เก็บรหัสผ่านแบบ plain text (ของจริงไม่ควรทำ)
-            $userTypeId = 1;
+            $userTypeId = $roleOptions[$roleKey]['id'];
             $stmt = $conn->prepare("
                 INSERT INTO `User` (user_type_id, username, email, password)
                 VALUES (?, ?, ?, ?)
@@ -73,6 +82,17 @@ include 'header.php';
             <div class="form-group">
                 <label>ยืนยันรหัสผ่าน</label>
                 <input name="confirm" type="password">
+            </div>
+            <div class="form-group">
+                <label>เลือกสถานะบัญชี</label>
+                <select name="account_role">
+                    <?php foreach ($roleOptions as $key => $opt): ?>
+                        <option value="<?php echo htmlspecialchars($key); ?>"
+                            <?php echo (($roleKey ?? 'customer') === $key) ? 'selected' : ''; ?>>
+                            <?php echo htmlspecialchars($opt['label']); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
             </div>
             <button class="btn-primary" type="submit">สมัครสมาชิก</button>
         </form>

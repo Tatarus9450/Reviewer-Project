@@ -67,4 +67,33 @@ include 'header.php';
     </div>
 </section>
 
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const form = document.querySelector('form');
+    if (!form || typeof Swal === 'undefined') return;
+
+    form.addEventListener('submit', (event) => {
+        if (form.dataset.submitting === 'true') return; // กัน double submit
+        event.preventDefault();
+        form.dataset.submitting = 'true';
+
+        Swal.fire({
+            title: 'กำลังเข้าสู่ระบบ...',
+            text: 'กรุณารอสักครู่',
+            timer: 800,
+            timerProgressBar: true,
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+            showConfirmButton: false,
+            didOpen: () => {
+                Swal.showLoading();
+            },
+            willClose: () => {
+                form.submit();
+            }
+        });
+    });
+});
+</script>
+
 <?php include 'footer.php'; ?>
