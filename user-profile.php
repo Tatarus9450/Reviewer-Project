@@ -38,6 +38,9 @@ $errors = [];
 $errorFields = [];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $isAjax = isset($_POST['ajax_action']);
+    $response = ['success' => false, 'message' => ''];
+
     if (isset($_POST['delete_review_id'])) {
         $rid = (int) $_POST['delete_review_id'];
         $chk = $conn->prepare("SELECT review_id FROM Review WHERE review_id = ? AND user_id = ?");
@@ -46,20 +49,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $chk->store_result();
         if ($chk->num_rows > 0) {
             $conn->begin_transaction();
-            $delC = $conn->prepare("DELETE FROM Comment WHERE review_id = ?");
-            $delC->bind_param('i', $rid);
-            $delC->execute();
-            $delC->close();
+            try {
+                $delC = $conn->prepare("DELETE FROM Comment WHERE review_id = ?");
+                $delC->bind_param('i', $rid);
+                $delC->execute();
+                $delC->close();
 
-            $delR = $conn->prepare("DELETE FROM Review WHERE review_id = ? AND user_id = ?");
-            $delR->bind_param('ii', $rid, $uid);
-            $delR->execute();
-            $delR->close();
+                $delR = $conn->prepare("DELETE FROM Review WHERE review_id = ? AND user_id = ?");
+                $delR->bind_param('ii', $rid, $uid);
+                $delR->execute();
+                $delR->close();
 
-            $conn->commit();
-            redirectTab('reviews', 'deleted_review');
+                $conn->commit();
+                if ($isAjax) {
+                    echo json_encode(['success' => true, 'message' => 'ลบรีวิวเรียบร้อยแล้ว']);
+                    exit;
+                }
+                redirectTab('reviews', 'deleted_review');
+            } catch (Exception $e) {
+                $conn->rollback();
+                if ($isAjax) {
+                    echo json_encode(['success' => false, 'error' => 'เกิดข้อผิดพลาดในการลบ']);
+                    exit;
+                }
+            }
         }
         $chk->close();
+        if ($isAjax) {
+            echo json_encode(['success' => false, 'error' => 'ไม่พบรีวิวหรือคุณไม่มีสิทธิ์ลบ']);
+            exit;
+        }
         redirectTab('reviews');
     }
 
@@ -69,6 +88,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $del->bind_param('ii', $cid, $uid);
         $del->execute();
         $del->close();
+        if ($isAjax) {
+            echo json_encode(['success' => true, 'message' => 'ลบคอมเมนต์เรียบร้อยแล้ว']);
+            exit;
+        }
         redirectTab('comments', 'deleted_comment');
     }
 
@@ -78,6 +101,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $del->bind_param('ii', $rid, $uid);
         $del->execute();
         $del->close();
+        if ($isAjax) {
+            echo json_encode(['success' => true, 'message' => 'ลบคอมเมนต์ทั้งหมดเรียบร้อยแล้ว']);
+            exit;
+        }
         redirectTab('comments', 'deleted_comment');
     }
 
@@ -109,23 +136,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['username'] = $newUsername;
             $_SESSION['user_type_id'] = $userTypeId;
 
+            if ($isAjax) {
+                echo json_encode(['success' => true, 'message' => 'อัปเดตโปรไฟล์สำเร็จ']);
+                exit;
+            }
+
             $messages[] = 'อัปเดตโปรไฟล์สำเร็จ';
 
             // refresh values shown
             $username = $newUsername;
             $email = $newEmail;
             $password = $newPassword;
+        } else {
+            if ($isAjax) {
+                echo json_encode(['success' => false, 'error' => implode(', ', $errors)]);
+                exit;
+            }
         }
     }
 }
 
 // Handle Store Deletion
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_store_id'])) {
+    $isAjax = isset($_POST['ajax_action']);
     $storeId = (int) $_POST['delete_store_id'];
     $confirmPass = $_POST['confirm_password'] ?? '';
 
     // Verify password
     if ($confirmPass !== $password) { // $password is from DB fetch at top
+        if ($isAjax) {
+            echo json_encode(['success' => false, 'error' => 'รหัสผ่านไม่ถูกต้อง! การลบล้มเหลว']);
+            exit;
+        }
         redirectTab('stores', 'error_password', true);
     } else {
         // Check ownership
@@ -171,12 +213,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_store_id'])) {
                 $delS->close();
 
                 $conn->commit();
+                if ($isAjax) {
+                    echo json_encode(['success' => true, 'message' => 'ลบร้านค้าเรียบร้อยแล้ว']);
+                    exit;
+                }
                 redirectTab('stores', 'deleted_store');
             } catch (Exception $e) {
                 $conn->rollback();
+                if ($isAjax) {
+                    echo json_encode(['success' => false, 'error' => 'เกิดข้อผิดพลาดในการลบร้านค้า: ' . $e->getMessage()]);
+                    exit;
+                }
                 $errors[] = 'เกิดข้อผิดพลาดในการลบร้านค้า: ' . $e->getMessage();
             }
         } else {
+            if ($isAjax) {
+                echo json_encode(['success' => false, 'error' => 'ไม่พบร้านค้าหรือคุณไม่มีสิทธิ์ลบ']);
+                exit;
+            }
             $errors[] = 'ไม่พบร้านค้าหรือคุณไม่มีสิทธิ์ลบ';
         }
         $chk->close();
@@ -185,11 +239,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_store_id'])) {
 
 // Handle Product Deletion
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_product_id'])) {
+    $isAjax = isset($_POST['ajax_action']);
     $productId = (int) $_POST['delete_product_id'];
     $confirmPass = $_POST['confirm_password'] ?? '';
 
     // Verify password
     if ($confirmPass !== $password) {
+        if ($isAjax) {
+            echo json_encode(['success' => false, 'error' => 'รหัสผ่านไม่ถูกต้อง! การลบล้มเหลว']);
+            exit;
+        }
         redirectTab('stores', 'error_password', true);
     } else {
         // Check ownership (via Store -> User)
@@ -228,12 +287,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_product_id']))
                 $delP->close();
 
                 $conn->commit();
+                if ($isAjax) {
+                    echo json_encode(['success' => true, 'message' => 'ลบสินค้าเรียบร้อยแล้ว']);
+                    exit;
+                }
                 redirectTab('stores', 'deleted_product');
             } catch (Exception $e) {
                 $conn->rollback();
+                if ($isAjax) {
+                    echo json_encode(['success' => false, 'error' => 'เกิดข้อผิดพลาดในการลบสินค้า: ' . $e->getMessage()]);
+                    exit;
+                }
                 $errors[] = 'เกิดข้อผิดพลาดในการลบสินค้า: ' . $e->getMessage();
             }
         } else {
+            if ($isAjax) {
+                echo json_encode(['success' => false, 'error' => 'ไม่พบสินค้าหรือคุณไม่มีสิทธิ์ลบ']);
+                exit;
+            }
             $errors[] = 'ไม่พบสินค้าหรือคุณไม่มีสิทธิ์ลบ';
         }
         $chk->close();
@@ -480,14 +551,14 @@ include 'header.php';
             <p style="opacity:0.85;">ยังไม่มีรีวิว</p>
         <?php else: ?>
             <?php foreach ($userReviews as $r): ?>
-                <div class="card clickable-card" data-url="product.php?id=<?php echo $r['product_id']; ?>"
+                <div class="card clickable-card"
+                    data-url="product.php?id=<?php echo $r['product_id']; ?>#review-<?php echo $r['review_id']; ?>"
                     style="margin-bottom:0.9rem; cursor: pointer;">
                     <div style="display:flex; justify-content:space-between; gap:0.5rem; align-items:center;">
                         <span style="font-weight:600;"><?php echo htmlspecialchars($r['store_name']); ?></span>
-                        <form method="post" style="margin:0;" onclick="event.stopPropagation();">
-                            <input type="hidden" name="delete_review_id" value="<?php echo (int) $r['review_id']; ?>">
-                            <button type="submit" class="danger-btn" title="ลบรีวิวนี้">🗑</button>
-                        </form>
+                        <button type="button" class="danger-btn btn-delete-ajax" data-type="review"
+                            data-id="<?php echo (int) $r['review_id']; ?>" title="ลบรีวิวนี้"
+                            onclick="event.stopPropagation();">🗑</button>
                     </div>
                     <div style="font-weight:770; font-size:1.37rem; margin-top:0.25rem;">
                         <?php echo htmlspecialchars($r['product_name']); ?>
@@ -506,13 +577,12 @@ include 'header.php';
             <p style="opacity:0.85;">ยังไม่มีคอมเมนต์</p>
         <?php else: ?>
             <?php foreach ($commentsGrouped as $group): ?>
-                <div class="card clickable-card" data-url="product.php?id=<?php echo $group['product_id']; ?>"
+                <div class="card clickable-card"
+                    data-url="product.php?id=<?php echo $group['product_id']; ?>#review-<?php echo $group['review_id']; ?>"
                     style="margin-bottom:0.9rem; position:relative; cursor: pointer;">
-                    <form method="post" style="margin:0; position:absolute; top:0.5rem; right:0.5rem;"
-                        onclick="event.stopPropagation();">
-                        <input type="hidden" name="delete_comment_group_id" value="<?php echo (int) $group['review_id']; ?>">
-                        <button type="submit" class="danger-btn" title="ลบคอมเมนต์ทั้งหมดของคุณในรีวิวนี้">🗑</button>
-                    </form>
+                    <button type="button" class="danger-btn btn-delete-ajax" data-type="comment_group"
+                        data-id="<?php echo (int) $group['review_id']; ?>" title="ลบคอมเมนต์ทั้งหมดของคุณในรีวิวนี้"
+                        style="position:absolute; top:0.5rem; right:0.5rem;" onclick="event.stopPropagation();">🗑</button>
                     <div style="margin-top:0.35rem; color: rgba(204, 204, 204, 1);">
                         ชื่อร้านค้า: <span
                             style="font-weight:650; font-size:1.1em; opacity:0.85;"><?php echo htmlspecialchars($group['store_name']); ?></span>
@@ -536,10 +606,9 @@ include 'header.php';
                             <div class="body-text" style="flex:1; margin:0;">
                                 <?php echo nl2br(htmlspecialchars($c['comment_text'])); ?>
                             </div>
-                            <form method="post" style="margin:0;" onclick="event.stopPropagation();">
-                                <input type="hidden" name="delete_comment_id" value="<?php echo (int) $c['comment_id']; ?>">
-                                <button type="submit" class="danger-btn" style="padding:0.15rem 0.5rem;">ลบ</button>
-                            </form>
+                            <button type="button" class="danger-btn btn-delete-ajax" data-type="comment"
+                                data-id="<?php echo (int) $c['comment_id']; ?>" style="padding:0.15rem 0.5rem;"
+                                onclick="event.stopPropagation();">ลบ</button>
                         </div>
                     <?php endforeach; ?>
                 </div>
@@ -619,6 +688,7 @@ include 'header.php';
     document.addEventListener('DOMContentLoaded', () => {
         const form = document.getElementById('profile-form');
 
+        // Profile Update AJAX
         document.querySelectorAll('.btn-edit').forEach(btn => {
             btn.dataset.mode = 'view';
             btn.addEventListener('click', () => {
@@ -632,8 +702,45 @@ include 'header.php';
                     btn.classList.add('save');
                     btn.dataset.mode = 'save';
                 } else {
-                    input.disabled = false;
-                    form.submit();
+                    // AJAX Submit
+                    const formData = new FormData(form);
+                    formData.append('ajax_action', '1');
+
+                    fetch('user-profile.php', {
+                        method: 'POST',
+                        body: formData
+                    })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                Swal.fire({
+                                    icon: 'success',
+                                    title: 'สำเร็จ',
+                                    text: data.message,
+                                    timer: 700,
+                                    showConfirmButton: false
+                                });
+                                input.disabled = true;
+                                btn.textContent = 'Edit';
+                                btn.classList.remove('save');
+                                btn.dataset.mode = 'view';
+                                // Update displayed value if needed (input value is already changed by user)
+                            } else {
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'เกิดข้อผิดพลาด',
+                                    text: data.error
+                                });
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error:', error);
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'เกิดข้อผิดพลาด',
+                                text: 'ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้'
+                            });
+                        });
                 }
             });
         });
@@ -678,7 +785,7 @@ include 'header.php';
             });
         });
 
-        // Delete Confirmation Popup
+        // Delete Confirmation Popup (Store/Product)
         document.querySelectorAll('.btn-delete-confirm').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation(); // Prevent card click
@@ -734,25 +841,118 @@ include 'header.php';
                     }
                 }).then((result) => {
                     if (result.isConfirmed) {
-                        // Create form and submit
-                        const form = document.createElement('form');
-                        form.method = 'POST';
-                        form.style.display = 'none';
+                        // AJAX Delete
+                        const formData = new FormData();
+                        formData.append(type === 'store' ? 'delete_store_id' : 'delete_product_id', id);
+                        formData.append('confirm_password', result.value.password);
+                        formData.append('ajax_action', '1');
 
-                        const idInput = document.createElement('input');
-                        idInput.name = type === 'store' ? 'delete_store_id' : 'delete_product_id';
-                        idInput.value = id;
-                        form.appendChild(idInput);
+                        fetch('user-profile.php', {
+                            method: 'POST',
+                            body: formData
+                        })
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data.success) {
+                                    Swal.fire({
+                                        icon: 'success',
+                                        title: 'ลบสำเร็จ',
+                                        text: data.message,
+                                        timer: 700,
+                                        showConfirmButton: false
+                                    });
+                                    // Remove element from DOM
+                                    if (type === 'store') {
+                                        btn.closest('.card').remove();
+                                    } else {
+                                        btn.closest('div').remove(); // Remove product row
+                                    }
+                                } else {
+                                    Swal.fire({
+                                        icon: 'error',
+                                        title: 'ลบล้มเหลว',
+                                        text: data.error
+                                    });
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Error:', error);
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'เกิดข้อผิดพลาด',
+                                    text: 'ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้'
+                                });
+                            });
+                    }
+                });
+            });
+        });
 
-                        const passInput = document.createElement('input');
-                        passInput.name = 'confirm_password';
-                        passInput.value = result.value.password;
-                        form.appendChild(passInput);
+        // AJAX Delete for Review/Comment (Simple Confirmation)
+        document.querySelectorAll('.btn-delete-ajax').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const type = btn.dataset.type;
+                const id = btn.dataset.id;
 
-                        document.body.appendChild(form);
+                let confirmTitle = 'คุณแน่ใจหรือไม่?';
+                if (type === 'review') confirmTitle = 'ลบรีวิวนี้?';
+                if (type === 'comment') confirmTitle = 'ลบคอมเมนต์นี้?';
+                if (type === 'comment_group') confirmTitle = 'ลบคอมเมนต์ทั้งหมดในรีวิวนี้?';
 
-                        document.body.appendChild(form);
-                        form.submit();
+                Swal.fire({
+                    title: confirmTitle,
+                    text: "การกระทำนี้ไม่สามารถย้อนกลับได้",
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#d33',
+                    cancelButtonColor: '#3085d6',
+                    confirmButtonText: 'ลบเลย',
+                    cancelButtonText: 'ยกเลิก'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        const formData = new FormData();
+                        if (type === 'review') formData.append('delete_review_id', id);
+                        if (type === 'comment') formData.append('delete_comment_id', id);
+                        if (type === 'comment_group') formData.append('delete_comment_group_id', id);
+                        formData.append('ajax_action', '1');
+
+                        fetch('user-profile.php', {
+                            method: 'POST',
+                            body: formData
+                        })
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data.success) {
+                                    Swal.fire({
+                                        icon: 'success',
+                                        title: 'ลบสำเร็จ',
+                                        text: data.message,
+                                        timer: 700,
+                                        showConfirmButton: false
+                                    });
+                                    // Remove element
+                                    if (type === 'review' || type === 'comment_group') {
+                                        btn.closest('.card').remove();
+                                    } else if (type === 'comment') {
+                                        btn.closest('div').remove(); // Remove comment row
+                                    }
+                                } else {
+                                    Swal.fire({
+                                        icon: 'error',
+                                        title: 'เกิดข้อผิดพลาด',
+                                        text: data.error || 'ไม่สามารถลบได้'
+                                    });
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Error:', error);
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'เกิดข้อผิดพลาด',
+                                    text: 'ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้'
+                                });
+                            });
                     }
                 });
             });
@@ -760,7 +960,10 @@ include 'header.php';
 
         // Clickable Cards
         document.querySelectorAll('.clickable-card').forEach(card => {
-            card.addEventListener('click', () => {
+            card.addEventListener('click', (e) => {
+                // Prevent redirection if clicking on buttons or inputs
+                if (e.target.closest('button') || e.target.closest('input')) return;
+
                 const url = card.dataset.url;
                 if (url) {
                     window.location.href = url;
