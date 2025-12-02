@@ -6,10 +6,10 @@ mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
 session_start();
 date_default_timezone_set('Asia/Bangkok');
 
-$DB_HOST = '#######.awardspace.net';
-$DB_USER = '#######';
-$DB_PASS = '#######';
-$DB_NAME = '#######';
+$DB_HOST = getenv('DB_HOST') ?: 'localhost';
+$DB_USER = getenv('DB_USER') ?: 'root';
+$DB_PASS = getenv('DB_PASS') ?: '';
+$DB_NAME = getenv('DB_NAME') ?: 'reviewhub_db';
 
 try {
     $conn = new mysqli($DB_HOST, $DB_USER, $DB_PASS, $DB_NAME);
