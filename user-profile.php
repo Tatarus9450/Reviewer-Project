@@ -8,7 +8,8 @@ $allowedTabs = ['profile', 'reviews', 'comments'];
 $activeTab = in_array($tabParam, $allowedTabs, true) ? $tabParam : 'profile';
 $msgParam = $_GET['msg'] ?? '';
 
-function redirectTab($tab, $msg = null) {
+function redirectTab($tab, $msg = null)
+{
     $url = 'user-profile.php?tab=' . urlencode($tab);
     if ($msg !== null) {
         $url .= '&msg=' . urlencode($msg);
@@ -35,7 +36,7 @@ $errorFields = [];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['delete_review_id'])) {
-        $rid = (int)$_POST['delete_review_id'];
+        $rid = (int) $_POST['delete_review_id'];
         $chk = $conn->prepare("SELECT review_id FROM Review WHERE review_id = ? AND user_id = ?");
         $chk->bind_param('ii', $rid, $uid);
         $chk->execute();
@@ -60,7 +61,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if (isset($_POST['delete_comment_id'])) {
-        $cid = (int)$_POST['delete_comment_id'];
+        $cid = (int) $_POST['delete_comment_id'];
         $del = $conn->prepare("DELETE FROM Comment WHERE comment_id = ? AND user_id = ?");
         $del->bind_param('ii', $cid, $uid);
         $del->execute();
@@ -69,7 +70,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if (isset($_POST['delete_comment_group_id'])) {
-        $rid = (int)$_POST['delete_comment_group_id'];
+        $rid = (int) $_POST['delete_comment_group_id'];
         $del = $conn->prepare("DELETE FROM Comment WHERE review_id = ? AND user_id = ?");
         $del->bind_param('ii', $rid, $uid);
         $del->execute();
@@ -78,7 +79,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     $newUsername = trim($_POST['username'] ?? $username);
-    $newEmail    = trim($_POST['email'] ?? $email);
+    $newEmail = trim($_POST['email'] ?? $email);
     $newPassword = trim($_POST['password'] ?? $password);
 
     if ($newUsername === '') {
@@ -156,7 +157,7 @@ $stmtComments->bind_param('i', $uid);
 $stmtComments->execute();
 $resComments = $stmtComments->get_result();
 while ($row = $resComments->fetch_assoc()) {
-    $rid = (int)$row['review_id'];
+    $rid = (int) $row['review_id'];
     if (!isset($commentsGrouped[$rid])) {
         $commentsGrouped[$rid] = [
             'review_id' => $rid,
@@ -180,43 +181,55 @@ include 'header.php';
 ?>
 
 <style>
-.tab-row {
-    display: flex;
-    gap: 0.5rem;
-    margin: 0.9rem 0 0.4rem;
-}
-.tab-btn {
-    padding: 0.45rem 0.9rem;
-    border-radius: 0.85rem;
-    border: 1px solid #1f2937;
-    background: #0b1222;
-    color: #f9fafb;
-    cursor: pointer;
-    transition: background 0.15s, border-color 0.15s;
-}
-.tab-btn.active {
-    background: #1f2937;
-    border-color: #3b82f6;
-}
-.tab-content { display: none; }
-.tab-content.active { display: block; }
-.danger-btn {
-    background: #b91c1c;
-    color: #f9fafb;
-    border: none;
-    border-radius: 8px;
-    padding: 0.25rem 0.6rem;
-    cursor: pointer;
-}
+    .tab-row {
+        display: flex;
+        gap: 0.5rem;
+        margin: 0.9rem 0 0.4rem;
+    }
+
+    .tab-btn {
+        padding: 0.45rem 0.9rem;
+        border-radius: 0.85rem;
+        border: 1px solid #1f2937;
+        background: #0b1222;
+        color: #f9fafb;
+        cursor: pointer;
+        transition: background 0.15s, border-color 0.15s;
+    }
+
+    .tab-btn.active {
+        background: #1f2937;
+        border-color: #3b82f6;
+    }
+
+    .tab-content {
+        display: none;
+    }
+
+    .tab-content.active {
+        display: block;
+    }
+
+    .danger-btn {
+        background: #b91c1c;
+        color: #f9fafb;
+        border: none;
+        border-radius: 8px;
+        padding: 0.25rem 0.6rem;
+        cursor: pointer;
+    }
 </style>
 
 <section class="section">
     <h1 class="page-title">โปรไฟล์ของฉัน</h1>
 
     <div class="tab-row">
-        <button type="button" class="tab-btn <?php echo $activeTab === 'profile' ? 'active' : ''; ?>" data-tab-target="profile">โปรไฟล์</button>
-        <button type="button" class="tab-btn <?php echo $activeTab === 'reviews' ? 'active' : ''; ?>" data-tab-target="reviews">รีวิว</button>
-        <button type="button" class="tab-btn <?php echo $activeTab === 'comments' ? 'active' : ''; ?>" data-tab-target="comments">คอมเมนต์</button>
+        <button type="button" class="tab-btn <?php echo $activeTab === 'profile' ? 'active' : ''; ?>"
+            data-tab-target="profile">โปรไฟล์</button>
+        <button type="button" class="tab-btn <?php echo $activeTab === 'reviews' ? 'active' : ''; ?>"
+            data-tab-target="reviews">รีวิว</button>
+        <button type="button" class="tab-btn <?php echo $activeTab === 'comments' ? 'active' : ''; ?>"
+            data-tab-target="comments">คอมเมนต์</button>
     </div>
 
     <?php foreach ($messages as $m): ?>
@@ -234,9 +247,8 @@ include 'header.php';
                     <label>ชื่อผู้ใช้</label>
                     <div class="profile-field">
                         <input type="text" name="username" id="profile-username"
-                               value="<?php echo htmlspecialchars($username); ?>"
-                               class="<?php echo isset($errorFields['username']) ? 'input-error' : ''; ?>"
-                               disabled>
+                            value="<?php echo htmlspecialchars($username); ?>"
+                            class="<?php echo isset($errorFields['username']) ? 'input-error' : ''; ?>" disabled>
                         <button type="button" class="btn-edit" data-target="profile-username">Edit</button>
                     </div>
                 </div>
@@ -245,9 +257,8 @@ include 'header.php';
                     <label>อีเมล</label>
                     <div class="profile-field">
                         <input type="email" name="email" id="profile-email"
-                               value="<?php echo htmlspecialchars($email); ?>"
-                               class="<?php echo isset($errorFields['email']) ? 'input-error' : ''; ?>"
-                               disabled>
+                            value="<?php echo htmlspecialchars($email); ?>"
+                            class="<?php echo isset($errorFields['email']) ? 'input-error' : ''; ?>" disabled>
                         <button type="button" class="btn-edit" data-target="profile-email">Edit</button>
                     </div>
                 </div>
@@ -256,9 +267,8 @@ include 'header.php';
                     <label>รหัสผ่าน</label>
                     <div class="profile-field">
                         <input type="text" name="password" id="profile-password"
-                               value="<?php echo htmlspecialchars($password); ?>"
-                               class="<?php echo isset($errorFields['password']) ? 'input-error' : ''; ?>"
-                               disabled>
+                            value="<?php echo htmlspecialchars($password); ?>"
+                            class="<?php echo isset($errorFields['password']) ? 'input-error' : ''; ?>" disabled>
                         <button type="button" class="btn-edit" data-target="profile-password">Edit</button>
                     </div>
                 </div>
@@ -294,14 +304,14 @@ include 'header.php';
                     <div style="display:flex; justify-content:space-between; gap:0.5rem; align-items:center;">
                         <span style="font-weight:600;"><?php echo htmlspecialchars($r['store_name']); ?></span>
                         <form method="post" style="margin:0;">
-                            <input type="hidden" name="delete_review_id" value="<?php echo (int)$r['review_id']; ?>">
+                            <input type="hidden" name="delete_review_id" value="<?php echo (int) $r['review_id']; ?>">
                             <button type="submit" class="danger-btn" title="ลบรีวิวนี้">🗑</button>
                         </form>
                     </div>
-                    <div style="font-weight:700; font-size:1.05rem; margin-top:0.25rem;">
+                    <div style="font-weight:770; font-size:1.37rem; margin-top:0.25rem;">
                         <?php echo htmlspecialchars($r['product_name']); ?>
                     </div>
-                    <div style="opacity:0.9; margin-top:0.15rem;">⭐ <?php echo (int)$r['rating']; ?></div>
+                    <div style="opacity:0.9; margin-top:0.15rem;">⭐ <?php echo (int) $r['rating']; ?></div>
                     <p class="body-text" style="margin-top:0.35rem;">
                         <?php echo nl2br(htmlspecialchars($r['review_text'])); ?>
                     </p>
@@ -315,31 +325,36 @@ include 'header.php';
             <p style="opacity:0.85;">ยังไม่มีคอมเมนต์</p>
         <?php else: ?>
             <?php foreach ($commentsGrouped as $group): ?>
-                <div class="card" style="margin-bottom:0.9rem;">
-                    <div style="display:flex; justify-content:space-between; gap:0.5rem; align-items:center;">
-                        <span style="font-weight:600;"><?php echo htmlspecialchars($group['store_name']); ?></span>
-                        <form method="post" style="margin:0;">
-                            <input type="hidden" name="delete_comment_group_id" value="<?php echo (int)$group['review_id']; ?>">
-                            <button type="submit" class="danger-btn" title="ลบคอมเมนต์ทั้งหมดของคุณในรีวิวนี้">🗑</button>
-                        </form>
+                <div class="card" style="margin-bottom:0.9rem; position:relative;">
+                    <form method="post" style="margin:0; position:absolute; top:0.5rem; right:0.5rem;">
+                        <input type="hidden" name="delete_comment_group_id" value="<?php echo (int) $group['review_id']; ?>">
+                        <button type="submit" class="danger-btn" title="ลบคอมเมนต์ทั้งหมดของคุณในรีวิวนี้">🗑</button>
+                    </form>
+                    <div style="margin-top:0.35rem; color: rgba(204, 204, 204, 1);">
+                        ชื่อร้านค้า: <span
+                            style="font-weight:650; font-size:1.1em; opacity:0.85;"><?php echo htmlspecialchars($group['store_name']); ?></span>
                     </div>
-                    <div style="font-weight:700; font-size:1.05rem; margin-top:0.25rem;">
+                    <div style="font-weight:800; font-size:1.8rem; margin-top:0.25rem;">
                         <?php echo htmlspecialchars($group['product_name']); ?>
                     </div>
-                    <div style="margin-top:0.35rem; opacity:0.9;">
-                        ชื่อคนรีวิว: <?php echo htmlspecialchars($group['reviewer_name']); ?>
+                    <div style="margin-top:0.35rem; color: rgba(239, 68, 68, 0.9);">
+                        ชื่อคนรีวิว: <span
+                            style="font-weight:500; font-size:1em; color: rgba(204, 204, 204, 1);"><?php echo htmlspecialchars($group['reviewer_name']); ?>
                     </div>
-                    <div style="margin-top:0.2rem; opacity:0.9;">
-                        ข้อความรีวิว: <?php echo nl2br(htmlspecialchars($group['review_text'])); ?>
+                    <div style="margin-top:0.04rem; color: rgba(239, 68, 68, 0.9);">
+                        ข้อความรีวิว: <span
+                            style="font-weight:500; font-size:1em; color: rgba(204, 204, 204, 1);"><?php echo nl2br(htmlspecialchars($group['review_text'])); ?>
                     </div>
-                    <div style="margin-top:0.4rem; font-weight:600;">คอมเมนต์ของคุณ:</div>
+                    <div
+                        style="font-size:1.15em; margin-top:0.8rem; padding-top:0.5rem; border-top:1px solid rgba(255, 255, 255, 0.35); font-weight:650; color: #f5d46b; letter-spacing:0.09em;">
+                        คอมเมนต์ของคุณ:</div>
                     <?php foreach ($group['comments'] as $c): ?>
                         <div style="display:flex; gap:0.5rem; align-items:flex-start; margin-top:0.3rem;">
                             <div class="body-text" style="flex:1; margin:0;">
                                 <?php echo nl2br(htmlspecialchars($c['comment_text'])); ?>
                             </div>
                             <form method="post" style="margin:0;">
-                                <input type="hidden" name="delete_comment_id" value="<?php echo (int)$c['comment_id']; ?>">
+                                <input type="hidden" name="delete_comment_id" value="<?php echo (int) $c['comment_id']; ?>">
                                 <button type="submit" class="danger-btn" style="padding:0.15rem 0.5rem;">ลบ</button>
                             </form>
                         </div>
@@ -351,45 +366,45 @@ include 'header.php';
 </section>
 
 <script>
-document.addEventListener('DOMContentLoaded', () => {
-    const form = document.getElementById('profile-form');
+    document.addEventListener('DOMContentLoaded', () => {
+        const form = document.getElementById('profile-form');
 
-    document.querySelectorAll('.btn-edit').forEach(btn => {
-        btn.dataset.mode = 'view';
-        btn.addEventListener('click', () => {
-            const targetId = btn.dataset.target;
-            const input = document.getElementById(targetId);
+        document.querySelectorAll('.btn-edit').forEach(btn => {
+            btn.dataset.mode = 'view';
+            btn.addEventListener('click', () => {
+                const targetId = btn.dataset.target;
+                const input = document.getElementById(targetId);
 
-            if (btn.dataset.mode === 'view') {
-                input.disabled = false;
-                input.focus();
-                btn.textContent = 'Submit';
-                btn.classList.add('save');
-                btn.dataset.mode = 'save';
-            } else {
-                input.disabled = false;
-                form.submit();
-            }
+                if (btn.dataset.mode === 'view') {
+                    input.disabled = false;
+                    input.focus();
+                    btn.textContent = 'Submit';
+                    btn.classList.add('save');
+                    btn.dataset.mode = 'save';
+                } else {
+                    input.disabled = false;
+                    form.submit();
+                }
+            });
+        });
+
+        const tabButtons = document.querySelectorAll('.tab-btn');
+        const tabContents = document.querySelectorAll('.tab-content');
+        tabButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const target = btn.dataset.tabTarget;
+                tabButtons.forEach(b => b.classList.remove('active'));
+                tabContents.forEach(sec => sec.classList.remove('active'));
+                btn.classList.add('active');
+                const targetEl = document.getElementById(`tab-${target}`);
+                if (targetEl) targetEl.classList.add('active');
+
+                const url = new URL(window.location.href);
+                url.searchParams.set('tab', target);
+                window.history.replaceState({}, '', url);
+            });
         });
     });
-
-    const tabButtons = document.querySelectorAll('.tab-btn');
-    const tabContents = document.querySelectorAll('.tab-content');
-    tabButtons.forEach(btn => {
-        btn.addEventListener('click', () => {
-            const target = btn.dataset.tabTarget;
-            tabButtons.forEach(b => b.classList.remove('active'));
-            tabContents.forEach(sec => sec.classList.remove('active'));
-            btn.classList.add('active');
-            const targetEl = document.getElementById(`tab-${target}`);
-            if (targetEl) targetEl.classList.add('active');
-
-            const url = new URL(window.location.href);
-            url.searchParams.set('tab', target);
-            window.history.replaceState({}, '', url);
-        });
-    });
-});
 </script>
 
 <?php include 'footer.php'; ?>

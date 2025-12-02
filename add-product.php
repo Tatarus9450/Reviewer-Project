@@ -109,9 +109,8 @@ include 'header.php';
     <?php endif; ?>
 
     <?php if ($success): ?>
-        <div class="form-card" style="max-width:540px; text-align:center;">
-            <p style="font-size:1.05rem; margin-bottom:0.6rem;">เพิ่มข้อมูลสินค้าแล้ว</p>
-            <p style="opacity:0.85;">กำลังพากลับหน้าแรก...</p>
+        <div>
+            <p style="opacity:0;">กำลังพากลับหน้าแรก...</p>
         </div>
     <?php else: ?>
         <div class="form-card" style="max-width:540px;">
