@@ -380,6 +380,13 @@ textarea:focus {
     color: #e5e7eb;
 }
 
+/* Fix SweetAlert2 Input Width */
+.swal-password-input {
+    width: 80% !important;
+    margin: 1em auto !important;
+    box-sizing: border-box !important;
+}
+
 /* Mobile Responsive */
 /* Mobile Responsive */
 /* Mobile Responsive */

@@ -3,8 +3,156 @@
 
 require_once 'db.php';
 
+$currentRole = $_SESSION['user_type_id'] ?? 0;
+
+// --- Admin Actions (Merged from admin_action.php) ---
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && (int) $currentRole === 2) {
+    header('Content-Type: application/json');
+    $action = $_POST['action'];
+
+    try {
+        if ($action === 'delete_product') {
+            $productId = (int) ($_POST['product_id'] ?? 0);
+            if ($productId <= 0)
+                throw new Exception('Invalid Product ID');
+
+            // 1. Delete Comments linked to Reviews of this Product
+            $conn->query("DELETE c FROM Comment c JOIN Review r ON c.review_id = r.review_id WHERE r.product_id = $productId");
+
+            // 2. Delete Reviews of this Product
+            $conn->query("DELETE FROM Review WHERE product_id = $productId");
+
+            // 3. Delete Product
+            $conn->query("DELETE FROM Product WHERE product_id = $productId");
+
+            echo json_encode(['success' => true, 'message' => 'ลบสินค้าเรียบร้อยแล้ว']);
+            exit;
+
+        } elseif ($action === 'delete_store') {
+            $storeId = (int) ($_POST['store_id'] ?? 0);
+            $password = $_POST['password'] ?? '';
+            if ($storeId <= 0)
+                throw new Exception('Invalid Store ID');
+
+            // Verify Admin Password
+            $adminId = $_SESSION['user_id'];
+            $stmt = $conn->prepare("SELECT password FROM User WHERE user_id = ?");
+            $stmt->bind_param('i', $adminId);
+            $stmt->execute();
+            $stmt->bind_result($adminPass);
+            $stmt->fetch();
+            $stmt->close();
+
+            if ($password !== $adminPass) {
+                throw new Exception('รหัสผ่านไม่ถูกต้อง');
+            }
+
+            // 1. Get all Product IDs of this store
+            $res = $conn->query("SELECT product_id FROM Product WHERE store_id = $storeId");
+            $pIds = [];
+            while ($row = $res->fetch_assoc())
+                $pIds[] = $row['product_id'];
+
+            if (!empty($pIds)) {
+                $pIdsStr = implode(',', $pIds);
+                // 2. Delete Comments linked to Reviews of these Products
+                $conn->query("DELETE c FROM Comment c JOIN Review r ON c.review_id = r.review_id WHERE r.product_id IN ($pIdsStr)");
+                // 3. Delete Reviews of these Products
+                $conn->query("DELETE FROM Review WHERE product_id IN ($pIdsStr)");
+                // 4. Delete Products
+                $conn->query("DELETE FROM Product WHERE store_id = $storeId");
+            }
+
+            // 5. Delete Store
+            $conn->query("DELETE FROM Store WHERE store_id = $storeId");
+
+            echo json_encode(['success' => true, 'message' => 'ลบร้านค้าเรียบร้อยแล้ว']);
+            exit;
+
+        } elseif ($action === 'delete_review') {
+            $reviewId = (int) ($_POST['review_id'] ?? 0);
+            if ($reviewId <= 0)
+                throw new Exception('Invalid Review ID');
+
+            // 1. Delete Comments of this Review
+            $conn->query("DELETE FROM Comment WHERE review_id = $reviewId");
+            // 2. Delete Review
+            $conn->query("DELETE FROM Review WHERE review_id = $reviewId");
+
+            echo json_encode(['success' => true, 'message' => 'ลบรีวิวเรียบร้อยแล้ว']);
+            exit;
+
+        } elseif ($action === 'delete_comment') {
+            $commentId = (int) ($_POST['comment_id'] ?? 0);
+            if ($commentId <= 0)
+                throw new Exception('Invalid Comment ID');
+
+            $conn->query("DELETE FROM Comment WHERE comment_id = $commentId");
+
+            echo json_encode(['success' => true, 'message' => 'ลบคอมเมนต์เรียบร้อยแล้ว']);
+            exit;
+
+        } elseif ($action === 'ban_user') {
+            $userId = (int) ($_POST['user_id'] ?? 0);
+            $password = $_POST['password'] ?? '';
+            if ($userId <= 0)
+                throw new Exception('Invalid User ID');
+
+            // Verify Admin Password
+            $adminId = $_SESSION['user_id'];
+            $stmt = $conn->prepare("SELECT password FROM User WHERE user_id = ?");
+            $stmt->bind_param('i', $adminId);
+            $stmt->execute();
+            $stmt->bind_result($adminPass);
+            $stmt->fetch();
+            $stmt->close();
+
+            if ($password !== $adminPass) {
+                throw new Exception('รหัสผ่านไม่ถูกต้อง');
+            }
+
+            // 1. Delete Comments made by User
+            $conn->query("DELETE FROM Comment WHERE user_id = $userId");
+
+            // 2. Delete Reviews made by User (and their comments)
+            $conn->query("DELETE c FROM Comment c JOIN Review r ON c.review_id = r.review_id WHERE r.user_id = $userId");
+            $conn->query("DELETE FROM Review WHERE user_id = $userId");
+
+            // 3. Delete Store (and products/reviews/comments linked to store)
+            $res = $conn->query("SELECT store_id FROM Store WHERE user_id = $userId");
+            if ($row = $res->fetch_assoc()) {
+                $storeId = $row['store_id'];
+                $resP = $conn->query("SELECT product_id FROM Product WHERE store_id = $storeId");
+                $pIds = [];
+                while ($rP = $resP->fetch_assoc())
+                    $pIds[] = $rP['product_id'];
+
+                if (!empty($pIds)) {
+                    $pIdsStr = implode(',', $pIds);
+                    $conn->query("DELETE c FROM Comment c JOIN Review r ON c.review_id = r.review_id WHERE r.product_id IN ($pIdsStr)");
+                    $conn->query("DELETE FROM Review WHERE product_id IN ($pIdsStr)");
+                    $conn->query("DELETE FROM Product WHERE store_id = $storeId");
+                }
+                $conn->query("DELETE FROM Store WHERE store_id = $storeId");
+            }
+
+            // 4. Delete User
+            $conn->query("DELETE FROM User WHERE user_id = $userId");
+
+            echo json_encode(['success' => true, 'message' => 'แบนผู้ใช้และลบข้อมูลทั้งหมดเรียบร้อยแล้ว']);
+            exit;
+        }
+
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'message' => 'Error: ' . $e->getMessage()]);
+        exit;
+    }
+}
+
 $productId = isset($_GET['id']) ? (int) $_GET['id'] : 0;
 if ($productId <= 0) {
+    // Allow if it's just a script access? No, product.php expects ID for display.
+    // But if we are here, it means it's NOT an admin action (which exits).
     die('ไม่พบสินค้า');
 }
 
@@ -229,7 +377,7 @@ $stmtRev->close();
 $commentsByReview = [];
 if ($reviews) {
     $stmtC = $conn->prepare("
-        SELECT c.comment_text, c.comment_date, u.username, u.user_type_id, u.user_id
+        SELECT c.comment_id, c.comment_text, c.comment_date, u.username, u.user_type_id, u.user_id
         FROM Comment c
         JOIN `User` u ON c.user_id = u.user_id
         WHERE c.review_id = ?
@@ -253,8 +401,32 @@ include 'header.php';
 ?>
 
 <section class="section">
-    <h1 class="page-title"><?php echo htmlspecialchars($pname); ?></h1>
+    <h1 class="page-title">
+        <?php if ((int) ($currentRole ?? 0) === 2): ?>
+            <button class="btn-admin-action" data-action="delete_product" data-id="<?php echo $productId; ?>"
+                style="background:#ef4444; color:white; border:none; border-radius:50%; width:32px; height:32px; cursor:pointer; margin-right:0.5rem;"
+                title="ลบสินค้า">
+                🗑️
+            </button>
+        <?php endif; ?>
+        <?php echo htmlspecialchars($pname); ?>
+        <?php if ((int) ($currentRole ?? 0) === 2): ?>
+            <button class="btn-admin-action" data-action="ban_user" data-id="<?php echo $storeOwnerId; ?>"
+                style="background:#eab308; color:white; border:none; border-radius:8px; padding:0.2rem 0.6rem; font-size:0.9rem; cursor:pointer; margin-left:0.5rem;"
+                title="แบนเจ้าของร้าน">
+                ลบUser(BANถาวร)
+            </button>
+        <?php endif; ?>
+    </h1>
     <p class="page-subtitle">
+    <p class="page-subtitle">
+        <?php if ((int) ($currentRole ?? 0) === 2): ?>
+            <button class="btn-admin-action" data-action="delete_store" data-id="<?php echo $storeId; ?>"
+                style="background:#eab308; color:white; border:none; border-radius:8px; padding:0.1rem 0.5rem; font-size:0.8rem; cursor:pointer; margin-right:0.3rem;"
+                title="ลบร้านค้า">
+                ลบข้อมูลร้าน
+            </button>
+        <?php endif; ?>
         ร้าน: <?php echo htmlspecialchars($sname); ?>
         <?php if ($scity || $scountry): ?>
             · ที่อยู่: <?php echo htmlspecialchars(trim($scity . ' ' . $scountry)); ?>
@@ -284,7 +456,7 @@ include 'header.php';
         <?php if (!currentUserId()): ?>
             <div class="alert alert-error">
                 ต้องเข้าสู่ระบบก่อนถึงจะเขียนรีวิวได้
-                <a href="login.php">เข้าสู่ระบบ</a>
+                <a href="login.php" style="text-decoration: underline; font-weight: bold; color: #3b82f6;">เข้าสู่ระบบ</a>
             </div>
         </div>
     <?php else: ?>
@@ -367,6 +539,19 @@ include 'header.php';
                         </div>
                         <div class="review-body">
                             <?php echo nl2br(htmlspecialchars($r['review_text'])); ?>
+                            <?php if ((int) ($currentRole ?? 0) === 2): ?>
+                                <div style="margin-top:0.5rem; display:flex; gap:0.5rem;">
+                                    <button class="btn-admin-action" data-action="delete_review"
+                                        data-id="<?php echo $r['review_id']; ?>"
+                                        style="background:#ef4444; color:white; border:none; border-radius:6px; padding:0.15rem 0.5rem; font-size:0.8rem; cursor:pointer;">
+                                        ลบ
+                                    </button>
+                                    <button class="btn-admin-action" data-action="ban_user" data-id="<?php echo $r['user_id']; ?>"
+                                        style="background:#eab308; color:white; border:none; border-radius:6px; padding:0.15rem 0.5rem; font-size:0.8rem; cursor:pointer;">
+                                        BAN
+                                    </button>
+                                </div>
+                            <?php endif; ?>
                         </div>
 
                         <div class="comments">
@@ -387,6 +572,20 @@ include 'header.php';
                                         <?php endif; ?>:
                                     </strong>
                                     <?php echo nl2br(htmlspecialchars($c['comment_text'])); ?>
+                                    <?php if ((int) ($currentRole ?? 0) === 2): ?>
+                                        <div style="margin-top:0.3rem; display:flex; gap:0.5rem;">
+                                            <button class="btn-admin-action" data-action="delete_comment"
+                                                data-id="<?php echo $c['comment_id']; ?>"
+                                                style="background:#ef4444; color:white; border:none; border-radius:6px; padding:0.15rem 0.5rem; font-size:0.75rem; cursor:pointer;">
+                                                ลบ
+                                            </button>
+                                            <button class="btn-admin-action" data-action="ban_user"
+                                                data-id="<?php echo $c['user_id']; ?>"
+                                                style="background:#eab308; color:white; border:none; border-radius:6px; padding:0.15rem 0.5rem; font-size:0.75rem; cursor:pointer;">
+                                                BAN
+                                            </button>
+                                        </div>
+                                    <?php endif; ?>
                                 </div>
                             <?php endforeach; ?>
 
@@ -516,4 +715,125 @@ include 'header.php';
             }
         });
     });
+
+    // Admin Actions
+    document.addEventListener('click', function (e) {
+        if (e.target && e.target.classList.contains('btn-admin-action')) {
+            e.preventDefault();
+            const btn = e.target;
+            const action = btn.dataset.action;
+            const id = btn.dataset.id;
+
+            let title = 'ยืนยันการทำรายการ?';
+            let text = 'คุณต้องการดำเนินการนี้ใช่หรือไม่?';
+            let confirmColor = '#ef4444';
+            let requirePassword = false;
+            let timerDuration = 3;
+
+            if (action === 'delete_product') {
+                title = 'ลบสินค้า?';
+                text = 'สินค้า รีวิว และคอมเมนต์ทั้งหมดจะถูกลบ!';
+            } else if (action === 'delete_store') {
+                title = 'ลบร้านค้า?';
+                text = 'ร้านค้า สินค้า รีวิว และคอมเมนต์ทั้งหมดจะถูกลบ!';
+                confirmColor = '#eab308';
+                requirePassword = true;
+                timerDuration = 7;
+            } else if (action === 'delete_review') {
+                title = 'ลบรีวิว?';
+                text = 'รีวิวและคอมเมนต์ที่เกี่ยวข้องจะถูกลบ!';
+            } else if (action === 'delete_comment') {
+                title = 'ลบคอมเมนต์?';
+                text = 'คอมเมนต์นี้จะถูกลบ!';
+            } else if (action === 'ban_user') {
+                title = 'BAN ผู้ใช้ถาวร?';
+                text = 'ผู้ใช้ ร้านค้า สินค้า รีวิว และคอมเมนต์ทั้งหมดของเขาจะถูกลบถาวร!';
+                confirmColor = '#eab308';
+                requirePassword = true;
+                timerDuration = 7;
+            }
+
+            Swal.fire({
+                title: title,
+                text: text,
+                icon: 'warning',
+                input: requirePassword ? 'password' : undefined,
+                inputPlaceholder: requirePassword ? 'กรุณาใส่รหัสผ่านแอดมินเพื่อยืนยัน' : undefined,
+                inputAttributes: {
+                    autocapitalize: 'off',
+                    autocorrect: 'off'
+                },
+                customClass: {
+                    input: 'swal-password-input'
+                },
+                showCancelButton: true,
+                confirmButtonColor: confirmColor,
+                cancelButtonColor: '#374151',
+                confirmButtonText: `ยืนยัน (${timerDuration})`,
+                cancelButtonText: 'ยกเลิก',
+                didOpen: () => {
+                    const confirmBtn = Swal.getConfirmButton();
+                    confirmBtn.disabled = true;
+                    let timer = timerDuration;
+                    const interval = setInterval(() => {
+                        timer--;
+                        confirmBtn.textContent = `ยืนยัน (${timer})`;
+                        if (timer <= 0) {
+                            clearInterval(interval);
+                            confirmBtn.textContent = 'ยืนยัน';
+                            confirmBtn.disabled = false;
+                        }
+                    }, 1000);
+
+                    // Fix input width
+                    const input = Swal.getInput();
+                    if (input) {
+                        input.style.width = '85%';
+                        input.style.maxWidth = '400px';
+                        input.style.margin = '1em auto';
+                    }
+                },
+                preConfirm: (password) => {
+                    if (requirePassword && !password) {
+                        Swal.showValidationMessage('กรุณาใส่รหัสผ่าน');
+                    }
+                    return password;
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    const formData = new FormData();
+                    formData.append('action', action);
+                    if (requirePassword) formData.append('password', result.value);
+
+                    if (action === 'delete_product') formData.append('product_id', id);
+                    if (action === 'delete_store') formData.append('store_id', id);
+                    if (action === 'delete_review') formData.append('review_id', id);
+                    if (action === 'delete_comment') formData.append('comment_id', id);
+                    if (action === 'ban_user') formData.append('user_id', id);
+
+                    fetch('product.php', {
+                        method: 'POST',
+                        body: formData
+                    })
+                        .then(res => res.json())
+                        .then(data => {
+                            if (data.success) {
+                                Swal.fire('สำเร็จ!', data.message, 'success')
+                                    .then(() => {
+                                        if (action === 'delete_product' || action === 'delete_store' || action === 'ban_user') {
+                                            window.location.href = 'index.php';
+                                        } else {
+                                            location.reload();
+                                        }
+                                    });
+                            } else {
+                                Swal.fire('เกิดข้อผิดพลาด', data.message, 'error');
+                            }
+                        })
+                        .catch(err => Swal.fire('Error', 'Connection failed', 'error'));
+                }
+            });
+        }
+    });
+
 </script>
