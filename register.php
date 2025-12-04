@@ -1,7 +1,7 @@
 <?php
 require_once 'db.php';
 
-$errors  = [];
+$errors = [];
 $success = false;
 $roleKey = 'customer';
 $roleOptions = [
@@ -11,10 +11,10 @@ $roleOptions = [
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $username = trim($_POST['username'] ?? '');
-    $email    = trim($_POST['email'] ?? '');
+    $email = trim($_POST['email'] ?? '');
     $password = $_POST['password'] ?? '';
-    $confirm  = $_POST['confirm'] ?? '';
-    $roleKey  = $_POST['account_role'] ?? 'customer';
+    $confirm = $_POST['confirm'] ?? '';
+    $roleKey = $_POST['account_role'] ?? 'customer';
 
     if ($username === '' || $email === '' || $password === '' || $roleKey === '') {
         $errors[] = 'กรุณากรอกข้อมูลให้ครบ';
@@ -51,6 +51,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         $stmt->close();
     }
+    if (isset($_POST['ajax_register'])) {
+        header('Content-Type: application/json');
+        if (empty($errors)) {
+            if ($success) {
+                echo json_encode(['success' => true, 'message' => 'สมัครสมาชิกสำเร็จ']);
+            } else {
+                echo json_encode(['success' => false, 'message' => 'เกิดข้อผิดพลาดในการบันทึกข้อมูล']);
+            }
+        } else {
+            echo json_encode(['success' => false, 'message' => implode(', ', $errors)]);
+        }
+        exit;
+    }
 }
 
 include 'header.php';
@@ -67,13 +80,11 @@ include 'header.php';
         <form method="post">
             <div class="form-group">
                 <label>Username</label>
-                <input name="username" type="text"
-                       value="<?php echo htmlspecialchars($_POST['username'] ?? ''); ?>">
+                <input name="username" type="text" value="<?php echo htmlspecialchars($_POST['username'] ?? ''); ?>">
             </div>
             <div class="form-group">
                 <label>Email</label>
-                <input name="email" type="email"
-                       value="<?php echo htmlspecialchars($_POST['email'] ?? ''); ?>">
+                <input name="email" type="email" value="<?php echo htmlspecialchars($_POST['email'] ?? ''); ?>">
             </div>
             <div class="form-group">
                 <label>รหัสผ่าน</label>
@@ -87,8 +98,7 @@ include 'header.php';
                 <label>เลือกสถานะบัญชี</label>
                 <select name="account_role">
                     <?php foreach ($roleOptions as $key => $opt): ?>
-                        <option value="<?php echo htmlspecialchars($key); ?>"
-                            <?php echo (($roleKey ?? 'customer') === $key) ? 'selected' : ''; ?>>
+                        <option value="<?php echo htmlspecialchars($key); ?>" <?php echo (($roleKey ?? 'customer') === $key) ? 'selected' : ''; ?>>
                             <?php echo htmlspecialchars($opt['label']); ?>
                         </option>
                     <?php endforeach; ?>
@@ -99,20 +109,66 @@ include 'header.php';
     </div>
 </section>
 
-<?php if ($success): ?>
 <script>
-document.addEventListener('DOMContentLoaded', () => {
-    Swal.fire({
-        icon: 'success',
-        title: 'สมัครสมาชิกสำเร็จ',
-        text: 'กำลังพาไปหน้าเข้าสู่ระบบ',
-        timer: 800,
-        showConfirmButton: false
-    }).then(() => {
-        window.location.href = 'login.php';
+    document.addEventListener('DOMContentLoaded', () => {
+        const form = document.querySelector('form');
+        if (!form || typeof Swal === 'undefined') return;
+
+        form.addEventListener('submit', (event) => {
+            event.preventDefault();
+
+            const formData = new FormData(form);
+            formData.append('ajax_register', '1');
+
+            Swal.fire({
+                title: 'กำลังสมัครสมาชิก...',
+                text: 'กรุณารอสักครู่',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                showConfirmButton: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+
+            fetch('register.php', {
+                method: 'POST',
+                body: formData
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        new Audio('assets/notification_sound.mp3').play()
+                            .then(() => console.log('Audio playing'))
+                            .catch(e => console.log('Audio play failed:', e));
+
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'สมัครสมาชิกสำเร็จ',
+                            text: 'กำลังพาไปหน้าเข้าสู่ระบบ',
+                            timer: 1520,
+                            showConfirmButton: false
+                        }).then(() => {
+                            window.location.href = 'login.php';
+                        });
+                    } else {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'เกิดข้อผิดพลาด',
+                            text: data.message || 'สมัครสมาชิกไม่สำเร็จ'
+                        });
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'เกิดข้อผิดพลาด',
+                        text: 'ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้'
+                    });
+                });
+        });
     });
-});
 </script>
-<?php endif; ?>
 
 <?php include 'footer.php'; ?>

@@ -3,9 +3,10 @@
 require_once 'db.php';
 
 $errors = [];
+$success = false;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $login    = trim($_POST['username'] ?? ''); // ใส่ username หรือ email ก็ได้
+    $login = trim($_POST['username'] ?? ''); // ใส่ username หรือ email ก็ได้
     $password = $_POST['password'] ?? '';
 
     if ($login === '' || $password === '') {
@@ -23,12 +24,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($stmt->fetch()) {
             if ($password === trim($dbPassword)) {   // compare ตรง ๆ
-                $_SESSION['user_id']      = $uid;
-                $_SESSION['username']     = $uname;
+                $_SESSION['user_id'] = $uid;
+                $_SESSION['username'] = $uname;
                 $_SESSION['user_type_id'] = $utype;
 
-                header('Location: index.php');
-                exit;
+                // header('Location: index.php');
+                // exit;
+                $success = true;
             } else {
                 $errors[] = 'รหัสผ่านไม่ถูกต้อง';
             }
@@ -37,6 +39,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         $stmt->close();
+    }
+    if (isset($_POST['ajax_login'])) {
+        header('Content-Type: application/json');
+        if (empty($errors)) {
+            echo json_encode(['success' => true, 'message' => 'เข้าสู่ระบบสำเร็จ']);
+        } else {
+            echo json_encode(['success' => false, 'message' => implode(', ', $errors)]);
+        }
+        exit;
     }
 }
 
@@ -55,8 +66,7 @@ include 'header.php';
         <form method="post">
             <div class="form-group">
                 <label>Username หรือ Email</label>
-                <input name="username" type="text"
-                       value="<?php echo htmlspecialchars($_POST['username'] ?? ''); ?>">
+                <input name="username" type="text" value="<?php echo htmlspecialchars($_POST['username'] ?? ''); ?>">
             </div>
             <div class="form-group">
                 <label>รหัสผ่าน</label>
@@ -68,32 +78,65 @@ include 'header.php';
 </section>
 
 <script>
-document.addEventListener('DOMContentLoaded', () => {
-    const form = document.querySelector('form');
-    if (!form || typeof Swal === 'undefined') return;
+    document.addEventListener('DOMContentLoaded', () => {
+        const form = document.querySelector('form');
+        if (!form || typeof Swal === 'undefined') return;
 
-    form.addEventListener('submit', (event) => {
-        if (form.dataset.submitting === 'true') return; // กัน double submit
-        event.preventDefault();
-        form.dataset.submitting = 'true';
+        form.addEventListener('submit', (event) => {
+            event.preventDefault();
 
-        Swal.fire({
-            title: 'กำลังเข้าสู่ระบบ...',
-            text: 'กรุณารอสักครู่',
-            timer: 800,
-            timerProgressBar: true,
-            allowOutsideClick: false,
-            allowEscapeKey: false,
-            showConfirmButton: false,
-            didOpen: () => {
-                Swal.showLoading();
-            },
-            willClose: () => {
-                form.submit();
-            }
+            const formData = new FormData(form);
+            formData.append('ajax_login', '1');
+
+            Swal.fire({
+                title: 'กำลังเข้าสู่ระบบ...',
+                text: 'กรุณารอสักครู่',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                showConfirmButton: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+
+            fetch('login.php', {
+                method: 'POST',
+                body: formData
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        new Audio('assets/notification_sound.mp3').play()
+                            .then(() => console.log('Audio playing'))
+                            .catch(e => console.log('Audio play failed:', e));
+
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'เข้าสู่ระบบสำเร็จ',
+                            text: 'กำลังพาไปหน้าแรก',
+                            timer: 1520,
+                            showConfirmButton: false
+                        }).then(() => {
+                            window.location.href = 'index.php';
+                        });
+                    } else {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'เกิดข้อผิดพลาด',
+                            text: data.message || 'เข้าสู่ระบบไม่สำเร็จ'
+                        });
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'เกิดข้อผิดพลาด',
+                        text: 'ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้'
+                    });
+                });
         });
     });
-});
 </script>
 
 <?php include 'footer.php'; ?>
