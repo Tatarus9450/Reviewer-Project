@@ -85,4 +85,4 @@
 
 ---
 
-**พัฒนาโดย:** PLOY,JAY PAT TAH
+**พัฒนาโดย:** PLOY,JAY PAT TAH ✨
